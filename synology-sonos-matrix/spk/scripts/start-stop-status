@@ -1,0 +1,68 @@
+#!/bin/sh
+# Simplified DSM start/stop script for the Sonos Matrix web app
+
+PACKAGE="sonos-matrix"
+INSTALL_DIR="${SYNOPKG_PKGDEST}"
+VENV_PATH="${INSTALL_DIR}/venv"
+LOG_FILE="${SYNOPKG_PKGVAR}/server.log"
+PID_FILE="${SYNOPKG_PKGVAR}/server.pid"
+PORT="${SONOS_MATRIX_PORT:-9200}"
+SUBNET="${SONOS_MATRIX_SUBNET:-192.168.1.}"
+RANGE="${SONOS_MATRIX_RANGE:-1-254}"
+TIMEOUT="${SONOS_MATRIX_TIMEOUT:-0.15}"
+
+create_venv() {
+    if [ ! -x "${VENV_PATH}/bin/python" ]; then
+        python3 -m venv "${VENV_PATH}" || return 1
+    fi
+    "${VENV_PATH}/bin/pip" install --no-cache-dir -r "${INSTALL_DIR}/requirements.txt" || return 1
+}
+
+start_daemon() {
+    create_venv || exit 1
+    cd "${INSTALL_DIR}" || exit 1
+    nohup "${VENV_PATH}/bin/python" -m sonos_matrix.app \
+        --host 0.0.0.0 \
+        --port "${PORT}" \
+        --subnet "${SUBNET}" \
+        --range "${RANGE}" \
+        --timeout "${TIMEOUT}" \
+        >>"${LOG_FILE}" 2>&1 &
+    echo $! > "${PID_FILE}"
+}
+
+stop_daemon() {
+    if [ -f "${PID_FILE}" ]; then
+        kill "$(cat "${PID_FILE}")" 2>/dev/null || true
+        rm -f "${PID_FILE}"
+    fi
+}
+
+status_daemon() {
+    if [ -f "${PID_FILE}" ] && ps -p "$(cat "${PID_FILE}")" >/dev/null 2>&1; then
+        echo "${PACKAGE} is running"
+        exit 0
+    fi
+    echo "${PACKAGE} is not running"
+    exit 1
+}
+
+case "$1" in
+    start)
+        start_daemon
+        ;;
+    stop)
+        stop_daemon
+        ;;
+    status)
+        status_daemon
+        ;;
+    restart)
+        stop_daemon
+        start_daemon
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status|restart}"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Sonos Network Matrix</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#111;color:#f5f5f5;margin:0;padding:20px;}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    h1{margin:0;font-size:22px;}
+    form.controls{display:flex;gap:10px;align-items:center;background:#1c1c1c;padding:10px;border-radius:6px;}
+    label{font-size:14px;}
+    input{background:#111;color:#f5f5f5;border:1px solid #444;padding:4px 6px;border-radius:4px;}
+    button{background:#2ecc71;color:#111;border:none;padding:8px 12px;border-radius:4px;font-weight:bold;cursor:pointer;}
+    button:hover{filter:brightness(1.05);}    
+    table{border-collapse:collapse;width:100%;margin-top:12px;}
+    th,td{border:1px solid #555;padding:6px;text-align:center;}
+    .good{background:#2ecc71;color:#111;} .warn{background:#f1c40f;color:#111;} .bad{background:#e74c3c;color:#111;}
+    .meta{color:#aaa;font-size:13px;margin-top:8px;}
+    .empty{margin-top:12px;font-style:italic;}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📡 Sonos Network Matrix S2</h1>
+    <div class="meta">Dernière actualisation : {{ timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+  </header>
+
+  <form class="controls" method="post" action="{{ url_for('index') }}">
+    <label>Subnet : <input name="subnet" value="{{ subnet }}" required></label>
+    <label>Plage IP : <input name="range" value="{{ range_value }}" required></label>
+    <label>Timeout (s) : <input name="timeout" type="number" step="0.01" min="0.01" value="{{ '%.2f'|format(timeout) }}" required></label>
+    <button type="submit">🔄 Rafraîchir</button>
+  </form>
+
+  {% if results %}
+  <table>
+    <tr><th>IP</th><th>Nom</th><th>WM</th><th>RSSI</th><th>SNR</th><th>Noise Floor</th></tr>
+    {% for ip,data in results.items() %}
+      {% set rssi = data.get('rssi', '-100')|int %}
+      {% set snr = data.get('snr', '0')|int %}
+      {% set nf = data.get('noise_floor', '-100') %}
+      {% set wm = data.get('wm', '?') %}
+      {% set name = data.get('name', '?') %}
+      {% set css = 'good' if rssi>-60 and snr>25 else 'warn' if rssi>-70 else 'bad' %}
+      <tr class="{{ css }}">
+        <td>{{ ip }}</td>
+        <td>{{ name }}</td>
+        <td>{{ wm }}</td>
+        <td>{{ rssi }} dBm</td>
+        <td>{{ snr }} dB</td>
+        <td>{{ nf }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <div class="empty">Aucun appareil Sonos détecté sur la plage indiquée.</div>
+  {% endif %}
+</body>
+</html>
